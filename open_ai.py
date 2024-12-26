@@ -1,7 +1,7 @@
 from groq import Groq
 
 client = Groq(
-    api_key=os.environ.get("GROQ_API_KEY"),
+    api_key="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",
 )
 
 chat_completion = client.chat.completions.create(

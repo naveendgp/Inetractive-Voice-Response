@@ -3,10 +3,6 @@ from flask import Flask, request
 from twilio.twiml.voice_response import VoiceResponse, Gather
 from twilio.twiml.messaging_response import MessagingResponse
 from groq import Groq  # Import Groq package
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv(".env.local")
 
 # Set up Groq API key
 groq_api_key ="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"
