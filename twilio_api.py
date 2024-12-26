@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from twilio.twiml.voice_response import VoiceResponse, Gather
 from twilio.twiml.messaging_response import MessagingResponse
 from groq import Groq  # Ensure Groq package is installed and available
@@ -93,6 +93,17 @@ def handle_sms_request():
         resp = MessagingResponse()
         resp.message("Sorry, I couldn't process your request at the moment.")
         return str(resp)
+
+@app.route("/demo", methods=['GET'])
+def demo_endpoint():
+    """
+    A demo GET API for testing the server.
+    """
+    return jsonify({
+        "status": "success",
+        "message": "This is a demo endpoint!",
+        "tips": "You can integrate this API with your client."
+    })
 
 if __name__ == "__main__":
     # Dynamically bind to a port if provided by the environment (e.g., in production)
