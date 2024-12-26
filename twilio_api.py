@@ -2,84 +2,99 @@ import os
 from flask import Flask, request
 from twilio.twiml.voice_response import VoiceResponse, Gather
 from twilio.twiml.messaging_response import MessagingResponse
-from groq import Groq  # Import Groq package
+from groq import Groq  # Ensure Groq package is installed and available
 
-# Set up Groq API key
-groq_api_key ="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"
-
-# Initialize Groq client
-client = Groq(
-    api_key=groq_api_key,
-)
-
+# Initialize Flask app
 app = Flask(__name__)
 
-def get_groq_response(prompt):
-    """Groq Chat Completion"""
+# Set up Groq API key
+GROQ_API_KEY = "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"
+
+# Initialize Groq client
+groq_client = Groq(api_key=GROQ_API_KEY)
+
+def fetch_groq_response(prompt):
+    """
+    Fetches a response from the Groq API based on the provided prompt.
+    """
     try:
-        # Call Groq API to generate a response
-        chat_completion = client.chat.completions.create(
+        response = groq_client.chat.completions.create(
             messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
+                {"role": "user", "content": prompt}
             ],
-            model="llama3-8b-8192",  # Example of model, adjust based on the Groq model you are using
-            stream=False,
+            model="llama3-8b-8192",  # Adjust the model based on your Groq setup
+            stream=False
         )
-        return chat_completion.choices[0].message.content.strip()
-    except Exception as e:
-        print(f"Error: {e}")
-        return "Sorry, I couldn't process that request."
+        return response.choices[0].message.content.strip()
+    except Exception as error:
+        print(f"Groq API Error: {error}")
+        return "I'm sorry, but I couldn't process your request at the moment."
 
 @app.route("/voice", methods=['POST'])
-def answer_call():
-    """Respond to voice inputs using Groq"""
+def handle_voice_request():
+    """
+    Handles voice requests from Twilio. Processes speech input and responds using Groq API.
+    """
     resp = VoiceResponse()
 
-    if 'SpeechResult' in request.values:
-        # Get the text transcription of what the caller said
-        input_text = request.values['SpeechResult']
-        print(f"SpeechResult: {input_text}")
+    # Check if a speech result is provided
+    input_text = request.values.get('SpeechResult')
+    if input_text:
+        print(f"Received SpeechResult: {input_text}")
 
-        # Get response from Groq
-        chat_response = get_groq_response(input_text)
-        print('Groq Response:', chat_response)
+        # Get Groq's response
+        groq_response = fetch_groq_response(input_text)
+        print(f"Groq Voice Response: {groq_response}")
 
-        # Respond back with Groq's response
-        resp.say(chat_response)
+        # Respond with Groq's output
+        resp.say(groq_response, voice='alice')
     else:
-        # First response or no transcription available
-        resp.say("Hey welcome to fam2bag, e-commerce. I'm an AI voice assistant, how can I help you?", voice='alice')
+        # Initial or fallback response
+        resp.say(
+            "Welcome to Fam2Bag, your e-commerce AI assistant. How may I assist you today?",
+            voice='alice'
+        )
 
-    # Collect further speech input
-    gather = Gather(input='speech', action='/voice', speech_timeout='auto', hints="hello,buy,sell,order,product names,help")
+    # Prepare to gather additional speech input
+    gather = Gather(
+        input='speech',
+        action='/voice',
+        speech_timeout='auto',
+        hints="hello,buy,sell,order,product names,help"
+    )
     resp.append(gather)
 
-    # If no input was received within the timeout, end the call
-    resp.say("Time to go Bye-Bye")
+    # Final fallback message if no input is received
+    resp.say("Thank you for calling Fam2Bag. Goodbye!")
     return str(resp)
 
 @app.route("/sms", methods=['POST'])
-def answer_sms():
-    """Respond to SMS messages using Groq"""
+def handle_sms_request():
+    """
+    Handles SMS requests from Twilio. Processes the incoming message and responds using Groq API.
+    """
     try:
-        incoming_msg = request.form['Body']
-        print('Incoming SMS:', incoming_msg)
+        incoming_msg = request.form.get('Body', '').strip()
+        if not incoming_msg:
+            raise ValueError("No message content received.")
 
-        chat_response = get_groq_response(incoming_msg)
-        print('SMS Groq Response:', chat_response)
+        print(f"Received SMS: {incoming_msg}")
 
+        # Get Groq's response
+        groq_response = fetch_groq_response(incoming_msg)
+        print(f"Groq SMS Response: {groq_response}")
+
+        # Respond back via SMS
         resp = MessagingResponse()
-
-        # Add a text message (SMS)
-        msg = resp.message(chat_response)
-
+        resp.message(groq_response)
         return str(resp)
-    except Exception as e:
-        print('ERROR:', e)
-        return str(MessagingResponse())
+    except Exception as error:
+        print(f"SMS Handling Error: {error}")
+        resp = MessagingResponse()
+        resp.message("Sorry, I couldn't process your request at the moment.")
+        return str(resp)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Dynamically bind to a port if provided by the environment (e.g., in production)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
